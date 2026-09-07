@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ title }}</title>
+  <link rel="stylesheet" href="/static/css/main.css">
+</head>
+<body class="player-body">
+  <main id="joinPanel" class="phone-shell">
+    <h1>{{ title }}</h1>
+    <form id="joinForm" class="stack">
+      <label for="nameInput">Display name</label>
+      <input id="nameInput" name="name" autocomplete="name" maxlength="32" required>
+      <button type="submit" class="primary">Create Team</button>
+    </form>
+    <section class="join-teams">
+      <h2>Join Team</h2>
+      <div id="joinTeamList" class="join-team-list"></div>
+    </section>
+  </main>
+
+  <main id="gamePanel" class="phone-shell hidden">
+    <section class="player-top">
+      <div>
+        <div id="playerName" class="label"></div>
+        <div id="connectionStatus" class="status-dot">Connecting</div>
+      </div>
+      <div class="score-pill">Score <strong id="playerScore">0</strong></div>
+    </section>
+
+    <section id="normalPanel">
+      <div class="mini-clue-meta">
+        <span id="currentCategory">Waiting</span>
+        <span id="currentValue"></span>
+      </div>
+      <div id="currentClue" class="phone-clue">Wait for the host to select a clue.</div>
+      <div id="buzzMessage" class="buzz-message"></div>
+      <button id="buzzButton" class="buzz-button" disabled>BUZZ</button>
+    </section>
+
+    <section id="finalPanel" class="hidden stack">
+      <h2>Final Jeopardy</h2>
+      <div id="finalCategory" class="final-category"></div>
+      <form id="wagerForm" class="stack">
+        <label for="wagerInput">Your wager</label>
+        <input id="wagerInput" type="number" inputmode="numeric" min="0" step="1">
+        <button type="submit" class="primary">Submit Wager</button>
+      </form>
+      <form id="answerForm" class="stack hidden">
+        <div id="finalClueText" class="phone-clue"></div>
+        <label for="finalAnswerInput">Your response</label>
+        <textarea id="finalAnswerInput" rows="4"></textarea>
+        <button type="submit" class="primary">Submit Response</button>
+      </form>
+      <p id="finalStatus" class="muted"></p>
+    </section>
+  </main>
+  <script>window.JEOPARDY_GAME_CODE = "{{ game_code }}";</script>
+  <script src="/static/js/player.js?v=3"></script>
+</body>
+</html>

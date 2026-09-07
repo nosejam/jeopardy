@@ -1,0 +1,13 @@
+.venv/
+__pycache__/
+.pytest_cache/
+*.py[cod]
+*$py.class
+
+# Local editor and spreadsheet lock files
+.*.swp
+.~lock.*#
+
+# Local environment overrides
+.env
+.env.*

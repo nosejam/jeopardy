@@ -1,0 +1,9 @@
+{
+  "game_title": "Jeopardy Game",
+  "host_pin": "2468",
+  "question_csv": "data/jeopardy_clue_bank.csv",
+  "incorrect_subtracts_points": true,
+  "reopen_after_incorrect": true,
+  "maximum_players": 24,
+  "sound_enabled": true
+}

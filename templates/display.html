@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ title }} Display</title>
+  <link rel="stylesheet" href="/static/css/main.css">
+</head>
+<body class="display-body">
+  <main id="displayRoot" class="display-root">
+    <section id="displayLobby" class="display-screen">
+      <div>
+        <h1 id="displayTitle">{{ title }}</h1>
+        <div class="join-card">
+          <img src="/g/{{ game_code }}/qr" alt="Join QR code" class="qr">
+          <div>
+            <div class="label">Join at</div>
+            <div id="joinUrl" class="join-url">{{ join_url }}</div>
+          </div>
+        </div>
+      </div>
+      <div>
+        <h2><span id="playerCount">0</span> Players</h2>
+        <div id="lobbyPlayers" class="player-grid"></div>
+      </div>
+    </section>
+
+    <section id="displayBoard" class="display-screen hidden">
+      <div class="board-header">
+        <h1 id="boardRound">Jeopardy</h1>
+        <div id="scoreStrip" class="score-strip"></div>
+      </div>
+      <div id="gameBoard" class="jeopardy-board"></div>
+    </section>
+
+    <section id="displayClue" class="display-screen clue-display hidden">
+      <div id="dailyDoubleBanner" class="daily-double hidden">DAILY DOUBLE</div>
+      <div id="clueCategory" class="clue-category"></div>
+      <div id="clueValue" class="clue-value"></div>
+      <div id="clueText" class="clue-text"></div>
+      <div id="buzzerState" class="buzzer-state"></div>
+      <div id="finalRevealList" class="final-reveal-list hidden"></div>
+    </section>
+
+    <section id="displayScoreboard" class="display-screen hidden">
+      <h1 id="scoreboardTitle">Scoreboard</h1>
+      <div id="rankings" class="rankings"></div>
+    </section>
+  </main>
+  <script src="/static/js/audio.js"></script>
+  <script>window.JEOPARDY_GAME_CODE = "{{ game_code }}";</script>
+  <script src="/static/js/display.js?v=5"></script>
+</body>
+</html>

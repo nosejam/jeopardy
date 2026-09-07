@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ title }} Host</title>
+  <link rel="stylesheet" href="/static/css/main.css">
+</head>
+<body class="host-body">
+  {% if not authenticated %}
+  <main class="host-login">
+    <h1>{{ title }}</h1>
+    <form method="post" action="/g/{{ game_code }}/host/login" class="stack">
+      <label for="pin">Host PIN</label>
+      <input id="pin" name="pin" type="password" inputmode="numeric" autofocus>
+      {% if error %}<p class="error">{{ error }}</p>{% endif %}
+      <button type="submit" class="primary">Unlock Host Controls</button>
+    </form>
+  </main>
+  {% else %}
+  <main class="host-layout">
+    <header class="host-header">
+      <div>
+        <h1>{{ title }}</h1>
+        <div id="hostStatus" class="muted">Connecting</div>
+      </div>
+      <div class="host-actions">
+        <form id="clueUploadForm" class="clue-upload" method="post" action="/g/{{ game_code }}/host/clues" enctype="multipart/form-data">
+          <label for="clueCsvInput">Clue CSV</label>
+          <input id="clueCsvInput" name="file" type="file" accept=".csv,text/csv">
+          <button type="submit">Load Clues</button>
+          <div id="clueUploadStatus" class="muted"></div>
+        </form>
+        <label class="game-select">
+          Game
+          <select id="gameSelection">
+            <option value="random" {% if game_selection == "random" %}selected{% endif %}>Random</option>
+            {% for game_id in game_options %}
+            <option value="{{ game_id }}" {% if game_selection == game_id %}selected{% endif %}>Game {{ game_id }}</option>
+            {% endfor %}
+          </select>
+        </label>
+        <button data-action="start">Start Game</button>
+        <button data-action="scoreboard">Scoreboard</button>
+        <button data-action="start_final">Final</button>
+        <button data-action="end">End</button>
+        <button data-action="reset" class="danger">Reset</button>
+        <label class="toggle"><input id="muteToggle" type="checkbox"> Mute</label>
+      </div>
+    </header>
+
+    <section class="host-main">
+      <aside class="host-panel">
+        <h2>Players</h2>
+        <div id="hostPlayers" class="host-player-list"></div>
+      </aside>
+
+      <section class="host-panel board-panel">
+        <div class="round-tabs">
+          <button data-round="Jeopardy">Jeopardy</button>
+          <button data-round="Double Jeopardy">Double</button>
+        </div>
+        <div id="hostBoard" class="host-board"></div>
+      </section>
+
+      <aside class="host-panel clue-panel">
+        <h2>Current Clue</h2>
+        <div id="hostClue"></div>
+        <div id="hostControls" class="stack">
+          <button data-action="reveal_daily_double">Reveal Daily Double</button>
+          <div class="row">
+            <select id="ddPlayer"></select>
+            <input id="ddWager" type="number" min="0" placeholder="Wager">
+            <button id="ddApply">Set DD</button>
+          </div>
+          <button data-action="open_buzzers" class="primary">Open Buzzers</button>
+          <button data-action="close_buzzers">Close Buzzers</button>
+          <button data-action="correct" class="correct">Correct</button>
+          <button data-action="incorrect" class="incorrect">Incorrect</button>
+          <button data-action="display_answer">Display Correct Response</button>
+          <button data-action="close_clue">Close Without Award</button>
+          <button data-action="return_board">Return to Board</button>
+        </div>
+        <h2>Final Jeopardy</h2>
+        <button id="finalProgressButton">Final</button>
+        <div id="finalHostList" class="final-host-list"></div>
+      </aside>
+    </section>
+  </main>
+  <script src="/static/js/audio.js"></script>
+  <script>window.JEOPARDY_GAME_CODE = "{{ game_code }}";</script>
+  <script src="/static/js/host.js?v=8"></script>
+  {% endif %}
+</body>
+</html>
