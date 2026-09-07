@@ -95,6 +95,21 @@ def test_display_creates_unique_game_rooms_and_landing_has_role_choices():
     assert "Host This Game" in response.text
 
 
+def test_root_redirects_to_display():
+    client = authenticated_client()
+
+    response = client.get("/", follow_redirects=False)
+
+    assert response.status_code == 303
+    assert response.headers["location"] == "/display"
+
+
+def test_public_base_url_is_used_for_join_urls(monkeypatch):
+    monkeypatch.setenv("PUBLIC_BASE_URL", "https://jeopardy.example.com/")
+
+    assert app.get_join_url("ABC123") == "https://jeopardy.example.com/g/ABC123"
+
+
 def test_only_one_host_can_claim_a_game():
     first_client = authenticated_client()
     game_code = create_authenticated_room(first_client)

@@ -6,6 +6,7 @@ from email import policy
 from email.parser import BytesParser
 import io
 import json
+import os
 from pathlib import Path
 import secrets
 from typing import Any
@@ -149,7 +150,10 @@ MANAGER = DEFAULT_ROOM.manager
 
 
 def get_join_url(game_code: str) -> str:
-    return f"http://{local_ip()}:8000/g/{game_code}"
+    base_url = os.environ.get("PUBLIC_BASE_URL", "").strip().rstrip("/")
+    if not base_url:
+        base_url = f"http://{local_ip()}:8000"
+    return f"{base_url}/g/{game_code}"
 
 
 def host_cookie_name(game_code: str) -> str:
@@ -167,7 +171,7 @@ def require_host_cookie(request: Request, room: GameRoom) -> None:
 
 @app.get("/", response_class=HTMLResponse)
 async def index() -> RedirectResponse:
-    return RedirectResponse(f"/g/{create_room().code}", status_code=303)
+    return RedirectResponse("/display", status_code=303)
 
 
 @app.get("/display", response_class=HTMLResponse)

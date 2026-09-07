@@ -165,13 +165,13 @@ class GameState:
         selected: dict[str, Clue] = {}
         for round_name, values in ROUND_VALUES.items():
             selected.update(self.random_round_clues(round_name, values))
+        if not selected:
+            return clone_clues(self.source_clues)
         final_clues = [clue for clue in self.source_clues.values() if clue.round == FINAL_ROUND]
         if final_clues:
             clue = replace(random.choice(final_clues), used=False)
             selected[clue.id] = clue
-        if selected:
-            return selected
-        return clone_clues(self.source_clues)
+        return selected
 
     def random_round_clues(self, round_name: str, values: tuple[int, ...]) -> dict[str, Clue]:
         by_category: dict[str, dict[int, list[Clue]]] = {}

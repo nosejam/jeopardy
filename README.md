@@ -38,6 +38,14 @@ A local-network Jeopardy-style game for a laptop host, projector display, and ph
 
 Opening `/display` creates a unique in-memory game room and redirects to `/g/GAME_CODE/display`. The display page shows a QR code for `/g/GAME_CODE`, where phones can choose to host or join as players. Only one host can claim each game.
 
+For hosted deployments, set `PUBLIC_BASE_URL` so QR codes and join URLs use the public site instead of a detected LAN address:
+
+```bash
+PUBLIC_BASE_URL=https://your-app.example.com
+```
+
+When `PUBLIC_BASE_URL` is not set, the app keeps using the detected local network IP for laptop-hosted games.
+
 ## Finding The Local IP
 
 The app prints the detected local URL when it starts. If that address does not work, find the laptop IP manually:

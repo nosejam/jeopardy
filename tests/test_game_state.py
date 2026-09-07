@@ -1,17 +1,32 @@
-from pathlib import Path
-
 import pytest
 
-from game_state import GameState, load_clues, load_clues_from_text
+from game_state import GameState, load_clues_from_text
 
 
-CSV = Path(__file__).resolve().parents[1] / "data" / "jeopardy_practice_questions.csv"
+TEST_CSV = """round,category,value,clue,answer,accepted_answers,daily_double
+Jeopardy,U.S. Geography,200,This state is home to the Grand Canyon.,Arizona,,false
+Jeopardy,U.S. Geography,400,This river forms much of the border between Texas and Mexico.,Rio Grande,,false
+Jeopardy,U.S. Geography,600,This state capital has three words.,Salt Lake City,,false
+Jeopardy,U.S. Geography,800,Mount Denali is in this state.,Alaska,,false
+Jeopardy,U.S. Geography,1000,This state includes the Everglades.,Florida,,false
+Jeopardy,Science,200,This planet is known as the Red Planet.,Mars,,true
+Jeopardy,Science,400,This gas do plants take in.,Carbon dioxide,,false
+Jeopardy,Science,600,This force pulls objects toward Earth.,Gravity,,false
+Jeopardy,Science,800,This organ pumps blood.,Heart,,false
+Jeopardy,Science,1000,This particle has a negative charge.,Electron,,false
+Double Jeopardy,History,400,This document begins We the People.,Constitution,,false
+Double Jeopardy,History,800,This war ended in 1865.,Civil War,,false
+Double Jeopardy,History,1200,This purchase doubled U.S. territory.,Louisiana Purchase,,false
+Double Jeopardy,History,1600,This wall fell in 1989.,Berlin Wall,,false
+Double Jeopardy,History,2000,This empire was ruled by Caesar.,Roman Empire,,false
+Final Jeopardy,State Capitals,0,This is the capital of Arizona.,Phoenix,,false
+"""
 
 
 def make_state() -> GameState:
     return GameState(
         title="Test",
-        clues=load_clues(CSV),
+        clues=load_clues_from_text(TEST_CSV),
         incorrect_subtracts_points=True,
         reopen_after_incorrect=True,
     )
@@ -26,8 +41,8 @@ def first_daily_double(state: GameState):
 
 
 def test_csv_parsing_loads_rounds_and_daily_double():
-    clues = load_clues(CSV)
-    assert len(clues) >= 30
+    clues = load_clues_from_text(TEST_CSV)
+    assert len(clues) >= 16
     assert any(c.round == "Jeopardy" for c in clues.values())
     assert any(c.round == "Double Jeopardy" for c in clues.values())
     assert any(c.round == "Final Jeopardy" for c in clues.values())
