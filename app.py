@@ -9,6 +9,7 @@ import json
 import os
 from pathlib import Path
 import secrets
+from time import monotonic
 from typing import Any
 
 import qrcode
@@ -48,6 +49,9 @@ class ConnectionManager:
         self.displays: set[WebSocket] = set()
         self.players: dict[str, set[WebSocket]] = {}
         self.lock = asyncio.Lock()
+        self.broadcast_lock = asyncio.Lock()
+        self.timer_handle: asyncio.TimerHandle | None = None
+        self.scheduled_deadline: float | None = None
 
     async def add(self, role: str, websocket: WebSocket, player_id: str | None = None) -> None:
         await websocket.accept()
@@ -75,6 +79,32 @@ class ConnectionManager:
                 self.room.state.disconnect_player(player_id)
 
     async def broadcast(self) -> None:
+        self.schedule_timer()
+        async with self.broadcast_lock:
+            await self.send_state()
+
+    def schedule_timer(self) -> None:
+        deadline = self.room.state.timer_deadline
+        if deadline == self.scheduled_deadline:
+            return
+        if self.timer_handle:
+            self.timer_handle.cancel()
+        self.timer_handle = None
+        self.scheduled_deadline = deadline
+        if deadline is not None:
+            self.timer_handle = asyncio.get_running_loop().call_later(
+                max(0, deadline - monotonic()), self.timer_elapsed
+            )
+
+    def timer_elapsed(self) -> None:
+        self.scheduled_deadline = None
+        self.timer_handle = None
+        if self.room.state.expire_timer():
+            asyncio.create_task(self.broadcast())
+        else:
+            self.schedule_timer()
+
+    async def send_state(self) -> None:
         join_url = get_join_url(self.room.code)
         qr_url = f"/g/{self.room.code}/qr"
         messages: list[tuple[WebSocket, dict[str, Any]]] = []
@@ -426,6 +456,8 @@ async def handle_player_message(room: GameRoom, player_id: str, message: dict[st
     try:
         if action == "buzz":
             room.state.buzz(player_id)
+        elif action == "select_clue":
+            room.state.pick_clue(str(message.get("clue_id")), message.get("board_number"), player_id)
         elif action == "final_wager":
             room.state.submit_final_wager(player_id, int(message.get("wager", 0)))
         elif action == "final_answer":
@@ -445,7 +477,7 @@ async def handle_host_message(room: GameRoom, message: dict[str, Any]) -> None:
         elif action == "set_round":
             room.state.set_round(str(message.get("round")))
         elif action == "select_clue":
-            room.state.select_clue(str(message.get("clue_id")))
+            room.state.pick_clue(str(message.get("clue_id")), message.get("board_number"))
         elif action == "reveal_daily_double":
             room.state.reveal_daily_double()
         elif action == "daily_double_setup":
@@ -456,10 +488,11 @@ async def handle_host_message(room: GameRoom, message: dict[str, Any]) -> None:
             room.state.open_buzzers()
         elif action == "close_buzzers":
             room.state.close_buzzers()
-        elif action == "correct":
-            room.state.mark_correct(_optional_int(message.get("wager")))
-        elif action == "incorrect":
-            room.state.mark_incorrect(_optional_int(message.get("wager")))
+        elif action in {"correct", "incorrect"}:
+            if not room.state.daily_double_active and message.get("response_number") != room.state.response_number:
+                raise ValueError("This response is no longer active.")
+            mark = room.state.mark_correct if action == "correct" else room.state.mark_incorrect
+            mark(_optional_int(message.get("wager")))
         elif action == "display_answer":
             room.state.display_answer()
         elif action == "close_clue":

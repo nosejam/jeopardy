@@ -7,11 +7,14 @@ import secrets
 import socket
 from dataclasses import dataclass, field, replace
 from pathlib import Path
+from time import monotonic
 from typing import Any
 
 
 NORMAL_ROUNDS = ("Jeopardy", "Double Jeopardy")
 FINAL_ROUND = "Final Jeopardy"
+BUZZ_SECONDS = 30
+RESPONSE_SECONDS = 5
 ROUND_ALIASES = {
     "J!": "Jeopardy",
     "JEOPARDY!": "Jeopardy",
@@ -104,6 +107,11 @@ class GameState:
     current_round: str = "Jeopardy"
     current_clue_id: str | None = None
     buzzer_open: bool = False
+    timer_deadline: float | None = None
+    response_expired: bool = False
+    response_number: int = 0
+    board_number: int = 0
+    board_selector: str | None = None
     first_buzzer: str | None = None
     current_respondent: str | None = None
     locked_out: set[str] = field(default_factory=set)
@@ -226,10 +234,13 @@ class GameState:
         self.players.pop(player_id, None)
         self.final_entries.pop(player_id, None)
         self.locked_out.discard(player_id)
+        if self.board_selector == player_id:
+            self.board_selector = None
         if self.first_buzzer == player_id:
             self.first_buzzer = None
         if self.current_respondent == player_id:
             self.current_respondent = None
+            self.close_buzzers()
 
     def board(self, round_name: str | None = None) -> dict[str, list[dict[str, Any]]]:
         target = round_name or self.current_round
@@ -245,7 +256,9 @@ class GameState:
         self.status = "board"
         self.current_round = "Jeopardy"
         self.current_clue_id = None
-        self.buzzer_open = False
+        self.close_buzzers()
+        self.board_selector = None
+        self.board_number += 1
         self.first_buzzer = None
         self.current_respondent = None
         self.locked_out.clear()
@@ -263,9 +276,16 @@ class GameState:
         if round_name not in NORMAL_ROUNDS:
             raise ValueError("Unsupported board round.")
         self.current_round = round_name
-        self.status = "board"
-        self.current_clue_id = None
-        self.close_buzzers()
+        self.return_to_board()
+
+    def pick_clue(self, clue_id: str, board_number: int, player_id: str | None = None) -> None:
+        if self.status != "board" or board_number != self.board_number:
+            raise ValueError("This board is no longer accepting picks.")
+        if player_id is not None and player_id != self.board_selector:
+            raise ValueError("This team does not control the board.")
+        if self.require_clue(clue_id).round != self.current_round:
+            raise ValueError("That clue is not on this board.")
+        self.select_clue(clue_id)
 
     def select_clue(self, clue_id: str) -> Clue:
         clue = self.require_clue(clue_id)
@@ -273,7 +293,7 @@ class GameState:
             raise ValueError("That clue is already used.")
         self.current_clue_id = clue_id
         self.status = "daily_double_intro" if clue.daily_double else "clue"
-        self.buzzer_open = False
+        self.close_buzzers()
         self.first_buzzer = None
         self.current_respondent = None
         self.locked_out.clear()
@@ -305,14 +325,33 @@ class GameState:
             raise ValueError("That clue is already complete.")
         if self.daily_double_active:
             raise ValueError("Daily Doubles are host-scored without open buzzers.")
+        if self.status != "clue" or self.answer_revealed or self.current_respondent:
+            raise ValueError("Buzzers cannot open for this clue right now.")
+        if self.buzzer_open:
+            return
         self.buzzer_open = True
+        self.timer_deadline = monotonic() + BUZZ_SECONDS
         self.first_buzzer = None
         self.current_respondent = None
 
     def close_buzzers(self) -> None:
         self.buzzer_open = False
+        self.timer_deadline = None
+        self.response_expired = False
+
+    def expire_timer(self) -> bool:
+        if self.timer_deadline is None or monotonic() < self.timer_deadline:
+            return False
+        self.timer_deadline = None
+        if self.buzzer_open:
+            self.display_answer()
+            self.close_clue()
+        else:
+            self.response_expired = True
+        return True
 
     def buzz(self, player_id: str) -> bool:
+        self.expire_timer()
         if not self.buzzer_open or self.first_buzzer or player_id in self.locked_out:
             return False
         if player_id in self.judged_respondents:
@@ -322,6 +361,8 @@ class GameState:
         self.first_buzzer = player_id
         self.current_respondent = player_id
         self.buzzer_open = False
+        self.timer_deadline = monotonic() + RESPONSE_SECONDS
+        self.response_number += 1
         return True
 
     def mark_correct(self, wager: int | None = None) -> None:
@@ -335,9 +376,8 @@ class GameState:
         amount = self._score_amount(wager)
         self.players[player_id].score += amount
         self.judged_respondents.add(player_id)
-        clue.used = True
-        self.buzzer_open = False
-        self.status = "clue_complete"
+        self.board_selector = player_id
+        self.close_clue()
 
     def mark_incorrect(self, wager: int | None = None) -> None:
         player_id = self.daily_double_player if self.daily_double_active else self.current_respondent
@@ -349,29 +389,35 @@ class GameState:
             self.players[player_id].score -= amount
         self.judged_respondents.add(player_id)
         self.locked_out.add(player_id)
-        self.buzzer_open = False
+        self.close_buzzers()
         self.first_buzzer = None
         self.current_respondent = None
         if self.daily_double_active:
-            if self.current_clue:
-                self.current_clue.used = True
-            self.status = "clue_complete"
+            self.close_clue()
+        elif self.reopen_after_incorrect:
+            if self.players.keys() - self.locked_out:
+                self.open_buzzers()
+            else:
+                self.display_answer()
+                self.close_clue()
 
     def display_answer(self) -> None:
         if not self.current_clue:
             raise ValueError("No clue is active.")
         self.answer_revealed = True
-        self.buzzer_open = False
+        self.close_buzzers()
 
     def close_clue(self, mark_used: bool = True) -> None:
         if self.current_clue and mark_used:
             self.current_clue.used = True
-        self.buzzer_open = False
+        self.close_buzzers()
+        self.current_respondent = None
         self.status = "clue_complete"
 
     def return_to_board(self) -> None:
         self.current_clue_id = None
-        self.buzzer_open = False
+        self.close_buzzers()
+        self.board_number += 1
         self.first_buzzer = None
         self.current_respondent = None
         self.locked_out.clear()
@@ -404,7 +450,8 @@ class GameState:
         self.status = "lobby"
         self.current_round = "Jeopardy"
         self.current_clue_id = None
-        self.buzzer_open = False
+        self.close_buzzers()
+        self.board_selector = None
         self.first_buzzer = None
         self.current_respondent = None
         self.locked_out.clear()
@@ -421,6 +468,7 @@ class GameState:
         if not final_clues:
             raise ValueError("No Final Jeopardy clue found.")
         clue = final_clues[0]
+        self.return_to_board()
         self.current_clue_id = clue.id
         self.final_clue_id = clue.id
         self.final_category = clue.category
@@ -501,6 +549,11 @@ class GameState:
             "board": self.board(),
             "current_clue": clue,
             "buzzer_open": self.buzzer_open,
+            "timer_remaining": max(0, self.timer_deadline - monotonic()) if self.timer_deadline is not None else None,
+            "response_expired": self.response_expired,
+            "response_number": self.response_number,
+            "board_number": self.board_number,
+            "can_pick_clue": self.status == "board" and player_id is not None and player_id == self.board_selector,
             "first_buzzer": self.first_buzzer,
             "first_buzzer_name": self.player_name(self.first_buzzer),
             "current_respondent": self.current_respondent,

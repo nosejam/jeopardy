@@ -38,6 +38,7 @@
       <div id="clueCategory" class="clue-category"></div>
       <div id="clueValue" class="clue-value"></div>
       <div id="clueText" class="clue-text"></div>
+      <div id="displayClueTimer" class="clue-timer display-clue-timer" hidden></div>
       <div id="buzzerState" class="buzzer-state"></div>
       <div id="finalRevealList" class="final-reveal-list hidden"></div>
     </section>
@@ -47,8 +48,9 @@
       <div id="rankings" class="rankings"></div>
     </section>
   </main>
-  <script src="/static/js/audio.js"></script>
+  <script src="/static/js/audio.js?v=2"></script>
+  <script src="/static/js/clue-timer.js"></script>
   <script>window.JEOPARDY_GAME_CODE = "{{ game_code }}";</script>
-  <script src="/static/js/display.js?v=5"></script>
+  <script src="/static/js/display.js?v=6"></script>
 </body>
 </html>

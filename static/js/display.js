@@ -5,6 +5,7 @@ const screens = {
   scoreboard: document.getElementById("displayScoreboard")
 };
 let lastState = {};
+const updateClueTimer = createClueTimer(document.getElementById("displayClueTimer"), { sound: true });
 const gameBase = `/g/${window.JEOPARDY_GAME_CODE}`;
 connectDisplay();
 
@@ -23,6 +24,7 @@ function show(which) {
 }
 
 function renderDisplay(state) {
+  updateClueTimer(state);
   if (window.JeopardyAudio) {
     if (!lastState.buzzer_open && state.buzzer_open) JeopardyAudio.play("open");
     if (!lastState.first_buzzer && state.first_buzzer) JeopardyAudio.play("buzz");

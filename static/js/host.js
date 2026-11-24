@@ -1,6 +1,16 @@
 let hostSocket = null;
 let hostState = null;
 let lastHostState = {};
+const responseDialog = document.getElementById("responseDialog");
+const updateHostTimer = createClueTimer(document.getElementById("hostClueTimer"));
+const updateResponseTimer = createClueTimer(document.getElementById("responseTimer"), { sound: true });
+responseDialog.addEventListener("cancel", event => event.preventDefault());
+responseDialog.querySelectorAll("[data-verdict]").forEach(button => {
+  button.addEventListener("click", () => sendHost({
+    action: button.dataset.verdict,
+    response_number: hostState.response_number
+  }));
+});
 const gameBase = `/g/${window.JEOPARDY_GAME_CODE}`;
 connectHost();
 
@@ -91,6 +101,7 @@ function renderHost(state) {
   renderGameSelection(state);
   renderHostBoard(state);
   renderHostClue(state);
+  renderResponseDialog(state);
   renderFinalHost(state);
   renderFinalProgress(state);
 }
@@ -149,12 +160,30 @@ function renderHostBoard(state) {
   const html = Object.entries(state.board).map(([cat, clues]) => `
     <div class="host-board-column">
       <div class="host-category">${escapeHtml(cat)}</div>
-      ${clues.map(c => `<button data-clue="${c.id}" ${c.used ? "disabled" : ""}>${c.used ? "Used" : "$" + c.value}${c.daily_double ? " *" : ""}</button>`).join("")}
+      ${clues.map(c => `<button data-clue="${escapeHtml(c.id)}" ${c.used || state.status !== "board" ? "disabled" : ""}>${c.used ? "Used" : "$" + c.value}${c.daily_double ? " *" : ""}</button>`).join("")}
     </div>
   `).join("");
   const board = document.getElementById("hostBoard");
   board.innerHTML = html || "<p>No clues for this round.</p>";
-  board.querySelectorAll("[data-clue]").forEach(button => button.addEventListener("click", () => sendHost({ action: "select_clue", clue_id: button.dataset.clue })));
+  board.querySelectorAll("[data-clue]").forEach(button => button.addEventListener("click", () => sendHost({
+    action: "select_clue", clue_id: button.dataset.clue, board_number: state.board_number
+  })));
+}
+
+function renderResponseDialog(state) {
+  const judging = state.status === "clue" && !state.daily_double_active && state.current_respondent && state.current_clue;
+  updateHostTimer(judging ? {} : state);
+  updateResponseTimer(judging ? state : {});
+  if (!judging) {
+    if (responseDialog.open) responseDialog.close();
+    return;
+  }
+  document.getElementById("responseTeam").textContent = state.first_buzzer_name;
+  document.getElementById("judgeResponse").textContent = state.current_clue.answer;
+  const alternatives = document.getElementById("judgeAlternatives");
+  alternatives.hidden = !state.current_clue.accepted_answers;
+  alternatives.textContent = "Also accepted: " + state.current_clue.accepted_answers;
+  if (!responseDialog.open) responseDialog.showModal();
 }
 
 function renderHostClue(state) {
@@ -181,6 +210,11 @@ function renderHostClue(state) {
   ` : "<p>No active clue.</p>";
   setActionDisabled("correct", !clue || !scoringPlayer || alreadyJudged);
   setActionDisabled("incorrect", !clue || !scoringPlayer || alreadyJudged);
+  document.querySelectorAll('[data-action="correct"], [data-action="incorrect"]').forEach(button => {
+    button.hidden = !state.daily_double_active || state.status !== "clue";
+  });
+  setActionDisabled("open_buzzers", state.status !== "clue" || state.daily_double_active || state.answer_revealed || state.buzzer_open || Boolean(state.current_respondent));
+  setActionDisabled("close_buzzers", !state.buzzer_open);
   setActionDisabled("display_answer", !clue || state.answer_revealed);
 }
 

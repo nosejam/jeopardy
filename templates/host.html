@@ -65,6 +65,7 @@
 
       <aside class="host-panel clue-panel">
         <h2>Current Clue</h2>
+        <p id="hostClueTimer" class="clue-timer" hidden></p>
         <div id="hostClue"></div>
         <div id="hostControls" class="stack">
           <button data-action="reveal_daily_double">Reveal Daily Double</button>
@@ -75,8 +76,8 @@
           </div>
           <button data-action="open_buzzers" class="primary">Open Buzzers</button>
           <button data-action="close_buzzers">Close Buzzers</button>
-          <button data-action="correct" class="correct">Correct</button>
-          <button data-action="incorrect" class="incorrect">Incorrect</button>
+          <button data-action="correct" class="correct" hidden>Correct</button>
+          <button data-action="incorrect" class="incorrect" hidden>Incorrect</button>
           <button data-action="display_answer">Display Correct Response</button>
           <button data-action="close_clue">Close Without Award</button>
           <button data-action="return_board">Return to Board</button>
@@ -87,9 +88,20 @@
       </aside>
     </section>
   </main>
-  <script src="/static/js/audio.js"></script>
+  <dialog id="responseDialog" aria-labelledby="responseTeam">
+    <h2 id="responseTeam"></h2>
+    <p id="responseTimer" class="clue-timer" hidden></p>
+    <p id="judgeResponse" class="answer-box"></p>
+    <p id="judgeAlternatives" hidden></p>
+    <div class="response-actions">
+      <button type="button" data-verdict="correct" class="correct">Correct</button>
+      <button type="button" data-verdict="incorrect" class="incorrect">Incorrect</button>
+    </div>
+  </dialog>
+  <script src="/static/js/audio.js?v=2"></script>
+  <script src="/static/js/clue-timer.js"></script>
   <script>window.JEOPARDY_GAME_CODE = "{{ game_code }}";</script>
-  <script src="/static/js/host.js?v=8"></script>
+  <script src="/static/js/host.js?v=9"></script>
   {% endif %}
 </body>
 </html>

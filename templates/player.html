@@ -29,6 +29,10 @@
       <div class="score-pill">Score <strong id="playerScore">0</strong></div>
     </section>
 
+    <section id="cluePicker" class="hidden">
+      <h2>Choose the next clue</h2>
+      <div id="cluePickerBoard" class="stack"></div>
+    </section>
     <section id="normalPanel">
       <div class="mini-clue-meta">
         <span id="currentCategory">Waiting</span>
@@ -36,6 +40,7 @@
       </div>
       <div id="currentClue" class="phone-clue">Wait for the host to select a clue.</div>
       <div id="buzzMessage" class="buzz-message"></div>
+      <p id="playerClueTimer" class="clue-timer" hidden></p>
       <button id="buzzButton" class="buzz-button" disabled>BUZZ</button>
     </section>
 
@@ -57,6 +62,7 @@
     </section>
   </main>
   <script>window.JEOPARDY_GAME_CODE = "{{ game_code }}";</script>
-  <script src="/static/js/player.js?v=3"></script>
+  <script src="/static/js/clue-timer.js"></script>
+  <script src="/static/js/player.js?v=4"></script>
 </body>
 </html>

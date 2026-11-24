@@ -1,5 +1,6 @@
 import pytest
 
+import game_state
 from game_state import GameState, load_clues_from_text
 
 
@@ -161,6 +162,47 @@ def test_first_buzz_locks_buzzer():
     assert state.buzz(p2.id) is False
     assert state.first_buzzer == p1.id
     assert state.buzzer_open is False
+
+
+def test_clue_timeout_and_board_control(monkeypatch):
+    now = 100
+    monkeypatch.setattr(game_state, "monotonic", lambda: now)
+    state = make_state()
+    first = state.add_or_update_player("first", "First Team")
+    second = state.add_or_update_player("second", "Second Team")
+    state.start_game()
+    regular = [clue for clue in state.clues.values() if clue.round == "Jeopardy" and not clue.daily_double]
+    state.pick_clue(regular[0].id, state.board_number)
+    state.open_buzzers()
+    assert state.timer_deadline == 130
+    now = 130
+    assert not state.buzz(first.id)
+    assert state.status == "clue_complete"
+    assert state.answer_revealed and regular[0].used
+    assert first.score == second.score == 0
+
+    state.return_to_board()
+    state.pick_clue(regular[1].id, state.board_number)
+    state.open_buzzers()
+    assert state.buzz(first.id)
+    assert state.timer_deadline == 135
+    now = 135
+    assert state.expire_timer() and state.response_expired
+    state.mark_incorrect()
+    assert first.score == -regular[1].value
+    assert state.buzzer_open and state.timer_deadline == 165
+    assert not state.buzz(first.id)
+    assert state.buzz(second.id)
+    state.mark_correct()
+    assert state.timer_deadline is None
+    state.return_to_board()
+    assert state.public_state(second.id)["can_pick_clue"]
+    with pytest.raises(ValueError):
+        state.pick_clue(regular[2].id, state.board_number, first.id)
+    state.pick_clue(regular[2].id, state.board_number, second.id)
+    with pytest.raises(ValueError):
+        state.pick_clue(regular[3].id, state.board_number)
+    assert state.current_clue is regular[2]
 
 
 def test_multiple_devices_on_same_team_buzz_for_one_player():
