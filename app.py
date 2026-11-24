@@ -397,9 +397,20 @@ def csv_text_from_multipart(contents: bytes, content_type: str) -> str:
     raise ValueError("CSV upload did not include a file.")
 
 
+async def websocket_room(websocket: WebSocket, game_code: str) -> GameRoom | None:
+    room = ROOMS.get(game_code)
+    if room is None:
+        # A browser cannot read the status of a rejected WebSocket handshake.
+        await websocket.accept()
+        await websocket.close(code=4004, reason="Game expired")
+    return room
+
+
 @app.websocket("/g/{game_code}/ws/player")
 async def ws_player(websocket: WebSocket, game_code: str) -> None:
-    room = get_room(game_code)
+    room = await websocket_room(websocket, game_code)
+    if room is None:
+        return
     player_id = websocket.query_params.get("player_id")
     name = websocket.query_params.get("name", "")
     try:
@@ -407,7 +418,7 @@ async def ws_player(websocket: WebSocket, game_code: str) -> None:
     except ValueError as exc:
         await websocket.accept()
         await websocket.send_json({"type": "error", "message": str(exc)})
-        await websocket.close()
+        await websocket.close(code=1008)
         return
     await room.manager.add("player", websocket, player.id)
     await websocket.send_json({"type": "joined", "player_id": player.id})
@@ -423,7 +434,9 @@ async def ws_player(websocket: WebSocket, game_code: str) -> None:
 
 @app.websocket("/g/{game_code}/ws/display")
 async def ws_display(websocket: WebSocket, game_code: str) -> None:
-    room = get_room(game_code)
+    room = await websocket_room(websocket, game_code)
+    if room is None:
+        return
     await room.manager.add("display", websocket)
     await room.manager.broadcast()
     try:
@@ -435,11 +448,13 @@ async def ws_display(websocket: WebSocket, game_code: str) -> None:
 
 @app.websocket("/g/{game_code}/ws/host")
 async def ws_host(websocket: WebSocket, game_code: str) -> None:
-    room = get_room(game_code)
+    room = await websocket_room(websocket, game_code)
+    if room is None:
+        return
     if not room.host_token or websocket.cookies.get(host_cookie_name(game_code)) != room.host_token:
         await websocket.accept()
         await websocket.send_json({"type": "error", "message": "Host PIN required."})
-        await websocket.close()
+        await websocket.close(code=1008)
         return
     await room.manager.add("host", websocket)
     await room.manager.broadcast()

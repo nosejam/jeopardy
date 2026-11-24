@@ -12,6 +12,15 @@ responseDialog.querySelectorAll("[data-verdict]").forEach(button => {
   }));
 });
 const gameBase = `/g/${window.JEOPARDY_GAME_CODE}`;
+const reconnect = roomReconnect(connectHost, event => {
+  updateHostTimer({});
+  updateResponseTimer({});
+  if (event.code === 1008) {
+    showRoomUnavailable("Host access ended. Reload to sign in again.");
+  } else {
+    showRoomUnavailable(event.code === 4004 ? "This game has expired." : "Connection lost. Reload to try again.");
+  }
+});
 connectHost();
 
 document.querySelectorAll("[data-action]").forEach(button => {
@@ -75,13 +84,16 @@ function connectHost() {
   const protocol = location.protocol === "https:" ? "wss" : "ws";
   hostSocket = new WebSocket(`${protocol}://${location.host}${gameBase}/ws/host`);
   hostSocket.onopen = () => document.getElementById("hostStatus").textContent = "Connected";
-  hostSocket.onclose = () => {
+  hostSocket.onclose = event => {
     document.getElementById("hostStatus").textContent = "Disconnected";
-    setTimeout(connectHost, 1200);
+    reconnect.disconnected(event);
   };
   hostSocket.onmessage = (event) => {
     const message = JSON.parse(event.data);
-    if (message.type === "state") renderHost(message.state);
+    if (message.type === "state") {
+      reconnect.connected();
+      renderHost(message.state);
+    }
     if (message.type === "error") document.getElementById("hostStatus").textContent = message.message;
   };
 }

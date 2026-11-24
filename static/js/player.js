@@ -17,15 +17,18 @@ const playerNameKey = `jeopardyPlayerName:${window.JEOPARDY_GAME_CODE}`;
 let socket = null;
 let playerId = localStorage.getItem(playerIdKey) || "";
 let playerName = localStorage.getItem(playerNameKey) || "";
-let reconnectTimer = null;
 let joined = false;
+let joinPoll = null;
+let joinError = "";
+const reconnect = roomReconnect(connect, event => {
+  updateClueTimer({});
+  if (event.code === 4004) showRoomUnavailable("This game has expired.");
+  else showRoomUnavailable(joinError || "Connection lost. Reload to try again.");
+});
 
 nameInput.value = playerName;
 if (playerName) connect();
-loadJoinTeams();
-setInterval(() => {
-  if (!joined) loadJoinTeams();
-}, 2500);
+else loadJoinTeams();
 
 joinForm.addEventListener("submit", (event) => {
   event.preventDefault();
@@ -49,6 +52,8 @@ answerForm.addEventListener("submit", (event) => {
 
 function connect() {
   if (!playerName) return;
+  clearTimeout(joinPoll);
+  joinError = "";
   const protocol = location.protocol === "https:" ? "wss" : "ws";
   const params = new URLSearchParams({ name: playerName });
   if (playerId) params.set("player_id", playerId);
@@ -59,10 +64,9 @@ function connect() {
   setConnection("Connecting");
 
   socket.onopen = () => setConnection("Connected");
-  socket.onclose = () => {
+  socket.onclose = event => {
     setConnection("Disconnected");
-    clearTimeout(reconnectTimer);
-    reconnectTimer = setTimeout(connect, 1200);
+    reconnect.disconnected(event);
   };
   socket.onmessage = (event) => {
     const message = JSON.parse(event.data);
@@ -70,14 +74,26 @@ function connect() {
       playerId = message.player_id;
       localStorage.setItem(playerIdKey, playerId);
     }
-    if (message.type === "state") render(message.state);
-    if (message.type === "error") document.getElementById("buzzMessage").textContent = message.message;
+    if (message.type === "state") {
+      reconnect.connected();
+      render(message.state);
+    }
+    if (message.type === "error") {
+      joinError = message.message;
+      document.getElementById("buzzMessage").textContent = message.message;
+    }
   };
 }
 
 async function loadJoinTeams() {
   try {
-    const response = await fetch(`${gameBase}/api/state`);
+    const response = await fetch(`${gameBase}/api/state`, { cache: "no-store" });
+    if (joined) return;
+    if (response.status === 404) {
+      showRoomUnavailable("This game has expired.");
+      return;
+    }
+    if (!response.ok) throw new Error("Teams unavailable");
     const state = await response.json();
     const players = state.players || [];
     joinTeamList.innerHTML = players.length ? players.map(player => (
@@ -89,6 +105,7 @@ async function loadJoinTeams() {
   } catch {
     joinTeamList.innerHTML = `<p class="muted">Teams unavailable.</p>`;
   }
+  if (!joined) joinPoll = setTimeout(loadJoinTeams, 2500);
 }
 
 function joinTeam(teamId, teamName) {

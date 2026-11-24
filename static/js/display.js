@@ -7,15 +7,22 @@ const screens = {
 let lastState = {};
 const updateClueTimer = createClueTimer(document.getElementById("displayClueTimer"), { sound: true });
 const gameBase = `/g/${window.JEOPARDY_GAME_CODE}`;
+const reconnect = roomReconnect(connectDisplay, event => {
+  updateClueTimer({});
+  showRoomUnavailable(event.code === 4004 ? "This game has expired." : "Connection lost. Reload to try again.", event.code === 4004);
+});
 connectDisplay();
 
 function connectDisplay() {
   const protocol = location.protocol === "https:" ? "wss" : "ws";
   const socket = new WebSocket(`${protocol}://${location.host}${gameBase}/ws/display`);
-  socket.onclose = () => setTimeout(connectDisplay, 1200);
+  socket.onclose = reconnect.disconnected;
   socket.onmessage = (event) => {
     const message = JSON.parse(event.data);
-    if (message.type === "state") renderDisplay(message.state);
+    if (message.type === "state") {
+      reconnect.connected();
+      renderDisplay(message.state);
+    }
   };
 }
 

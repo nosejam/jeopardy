@@ -22,6 +22,8 @@ button, .choice-button {
   cursor: pointer;
 }
 .choice-button { display: block; text-align: center; text-decoration: none; }
+.room-unavailable { width: min(28rem, calc(100% - 2rem)); margin: 10vh auto; text-align: center; }
+.room-unavailable h1 { font-size: 1.5rem; }
 button:disabled { opacity: 0.38; cursor: not-allowed; }
 input, select, textarea {
   width: 100%;

@@ -1,6 +1,17 @@
 from fastapi.testclient import TestClient
+import pytest
+from starlette.websockets import WebSocketDisconnect
 
 import app
+
+
+@pytest.mark.parametrize("role", ["display", "host", "player"])
+def test_expired_room_websocket_sends_terminal_close_code(role):
+    with TestClient(app.app) as client:
+        with client.websocket_connect(f"/g/missing-room/ws/{role}") as socket:
+            with pytest.raises(WebSocketDisconnect) as error:
+                socket.receive_text()
+    assert error.value.code == 4004
 
 
 CUSTOM_CSV = (
